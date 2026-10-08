@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+<title>스피드 퀴즈 쇼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=Jua&display=swap">
+<style>
+/* Layout: TV 퀴즈쇼 무대 — 로비는 6장의 주제 카드, 게임은 큰 단어 판 하나와 아래 버튼 3개 */
+:root{
+  --bg:#eef0f7; --stage:#ffffff; --fg:#1b1d33; --muted:#62668a; --line:#d5d8ea;
+  --accent:#ff4d6d; --gold:#ffb703; --ok:#12a150; --bad:#e5383b; --pass:#5b6cff;
+  --board:#1b1d33; --board-fg:#fdfcff;
+  --otaku1:#ff5fa2; --otaku2:#8b5cf6;
+  --f-display:"Black Han Sans","Jua",system-ui,sans-serif;
+  --f-round:"Jua","Gowun Dodum",system-ui,sans-serif;
+  --f-body:"Gowun Dodum",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12131f; --stage:#1c1e30; --fg:#eef0ff; --muted:#9aa0c7; --line:#2e3150;
+  --accent:#ff6b85; --gold:#ffc43d; --ok:#2ec27e; --bad:#ff5a5f; --pass:#7d8bff;
+  --board:#0a0b14; --board-fg:#fdfcff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12131f; --stage:#1c1e30; --fg:#eef0ff; --muted:#9aa0c7; --line:#2e3150;
+  --accent:#ff6b85; --gold:#ffc43d; --ok:#2ec27e; --bad:#ff5a5f; --pass:#7d8bff;
+  --board:#0a0b14; --board-fg:#fdfcff; color-scheme:dark}
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:20px;min-height:100%;box-sizing:border-box}
+button{font:inherit;cursor:pointer;border:0}
+button:focus-visible,input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* 비밀 입력창 */
+.secret{display:flex;gap:8px;align-items:center}
+.secret input{flex:1;min-width:0;font:inherit;font-size:15px;padding:10px 14px;border-radius:999px;border:1.5px dashed var(--line);background:var(--stage);color:var(--fg)}
+.secret input::placeholder{color:var(--muted)}
+.secret .hint{font-size:12px;color:var(--muted);white-space:nowrap}
+
+/* 로비 */
+.marquee{text-align:center;display:flex;flex-direction:column;gap:6px;padding-block:8px}
+.marquee .eyebrow{font-family:var(--f-round);color:var(--accent);letter-spacing:.2em;font-size:14px}
+.marquee h1{margin:0;font-family:var(--f-display);font-weight:400;font-size:clamp(44px,11vw,84px);line-height:1;text-wrap:balance}
+.marquee h1 span{color:var(--accent)}
+.marquee p{margin:0;color:var(--muted)}
+.bulbs{display:flex;justify-content:center;gap:10px}
+.bulbs i{width:9px;height:9px;border-radius:50%;background:var(--gold);animation:blink 1.2s infinite}
+.bulbs i:nth-child(even){animation-delay:.6s}
+@keyframes blink{50%{opacity:.25}}
+
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:560px){.cats{grid-template-columns:repeat(2,1fr)}}
+.cat{background:var(--stage);border:2px solid var(--line);border-radius:18px;padding:18px 14px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;color:var(--fg);transition:transform .15s,border-color .15s;position:relative;overflow:hidden}
+.cat:hover{transform:translateY(-3px);border-color:var(--c)}
+.cat::after{content:"";position:absolute;right:-24px;bottom:-24px;width:80px;height:80px;border-radius:50%;background:var(--c);opacity:.18}
+.cat .ico{font-size:34px;line-height:1}
+.cat .name{font-family:var(--f-display);font-size:28px}
+.cat .cnt{font-size:13px;color:var(--muted)}
+.cat.secret-card{display:none;grid-column:1/-1;background:linear-gradient(120deg,var(--otaku1),var(--otaku2));border-color:transparent;color:#fff;align-items:center;text-align:center}
+.cat.secret-card .cnt{color:#ffe6f3}
+.cat.mystery-card{display:none;grid-column:1/-1;background:repeating-linear-gradient(45deg,#1b1d33 0 18px,#24274a 18px 36px);border:2px dashed var(--gold);color:var(--gold);align-items:center;text-align:center}
+.cat.mystery-card .cnt{color:#f6e7b8}
+.cat.mystery-card.show{display:flex;animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+.mission{font-family:var(--f-round);font-size:clamp(16px,4.4vw,22px);background:var(--gold);color:#1b1d33;padding:6px 16px;border-radius:999px;display:none}
+.mystery .mission{display:inline-block;animation:pop .4s}
+.mystery .board{background:repeating-linear-gradient(45deg,#14152a 0 22px,#1a1c36 22px 44px);box-shadow:inset 0 0 0 6px var(--gold)}
+.cat.hiphop-card{display:none;grid-column:1/-1;background:#0d0d0f;border:2px solid #e5383b;color:#fff;align-items:center;text-align:center}
+.cat.hiphop-card .name{color:#ff5a5f;letter-spacing:.02em}
+.cat.hiphop-card .cnt{color:#c9c9d1}
+.cat.hiphop-card.show{display:flex;animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+.hiphop .board{background:#0d0d0f;box-shadow:inset 0 0 0 6px #e5383b}
+.hiphop .timer .fill{background:#e5383b}
+.board .q{font-family:var(--f-display);font-size:clamp(24px,6vw,40px);line-height:1.3;word-break:keep-all;text-wrap:balance;max-width:24ch}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.opts{grid-template-columns:1fr}}
+.opt{background:var(--stage);color:var(--fg);border:2px solid var(--line);border-radius:14px;padding:14px 12px;font-family:var(--f-round);font-size:19px;text-align:left;display:flex;gap:10px;align-items:center;min-width:0}
+.opt:hover{border-color:#e5383b}
+.opt kbd{flex:none}
+.opt.right{background:var(--ok);border-color:var(--ok);color:#fff}
+.opt.wrong{background:var(--bad);border-color:var(--bad);color:#fff}
+.passrow{display:flex;justify-content:center}
+.passrow .act{padding:12px 36px;font-size:22px}
+.cat.secret-card.show{display:flex;animation:pop .6s cubic-bezier(.2,1.6,.4,1)}
+@keyframes pop{0%{transform:scale(.4) rotate(-6deg);opacity:0}100%{transform:none;opacity:1}}
+
+.rules{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:center;color:var(--muted);font-size:13px}
+kbd{font-family:var(--f-round);background:var(--stage);border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:1px 7px;color:var(--fg)}
+
+/* 게임 */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.chip{font-family:var(--f-round);font-size:16px;padding:6px 14px;border-radius:999px;background:var(--c,var(--accent));color:#fff}
+.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px}
+.scores{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-variant-numeric:tabular-nums}
+.score{background:var(--stage);border:1.5px solid var(--line);border-radius:14px;padding:8px;text-align:center}
+.score b{display:block;font-family:var(--f-display);font-weight:400;font-size:30px;line-height:1.1}
+.score small{color:var(--muted);font-size:13px}
+.score.ok b{color:var(--ok)} .score.bad b{color:var(--bad)} .score.pass b{color:var(--pass)}
+
+.timer{display:flex;align-items:center;gap:12px;font-variant-numeric:tabular-nums}
+.timer .bar{flex:1;height:14px;border-radius:999px;background:var(--line);overflow:hidden}
+.timer .fill{height:100%;width:100%;background:var(--gold);border-radius:999px;transition:width .25s linear,background .3s}
+.timer .t{font-family:var(--f-display);font-size:34px;min-width:3.2ch;text-align:right}
+.timer.hurry .fill{background:var(--bad)}
+.timer.hurry .t{color:var(--bad);animation:blink .5s infinite}
+
+.board{background:var(--board);color:var(--board-fg);border-radius:24px;min-height:min(42vh,320px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px 16px;text-align:center;position:relative;overflow:hidden;box-shadow:inset 0 0 0 6px color-mix(in srgb,var(--c,var(--accent)) 70%,transparent)}
+.board .no{font-family:var(--f-round);opacity:.6;font-size:15px}
+.board .word{font-family:var(--f-display);font-size:clamp(44px,12vw,104px);line-height:1.05;word-break:keep-all;overflow-wrap:anywhere;text-wrap:balance}
+.board .word.flip{animation:flip .28s ease-out}
+@keyframes flip{0%{transform:translateY(24px) scale(.9);opacity:0}100%{transform:none;opacity:1}}
+.board .flash{position:absolute;inset:0;pointer-events:none;opacity:0}
+.board .flash.ok{background:var(--ok);animation:fl .4s}
+.board .flash.bad{background:var(--bad);animation:fl .4s}
+.board .flash.pass{background:var(--pass);animation:fl .4s}
+@keyframes fl{0%{opacity:.45}100%{opacity:0}}
+
+.actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.act{border-radius:18px;padding:18px 8px;font-family:var(--f-display);font-size:clamp(22px,6vw,32px);color:#fff;box-shadow:0 6px 0 color-mix(in srgb,var(--b) 60%,#000);background:var(--b);transition:transform .08s,box-shadow .08s;display:flex;flex-direction:column;align-items:center;gap:2px}
+.act small{font-family:var(--f-body);font-size:12px;opacity:.85}
+.act:active{transform:translateY(5px);box-shadow:0 1px 0 color-mix(in srgb,var(--b) 60%,#000)}
+.act.ok{--b:var(--ok)} .act.bad{--b:var(--bad)} .act.pass{--b:var(--pass)}
+
+/* 카운트다운 */
+.count{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--bg) 85%,transparent);z-index:5}
+.count b{font-family:var(--f-display);font-weight:400;font-size:min(40vw,220px);color:var(--accent);animation:pop .5s}
+
+/* 결과 */
+.result-head{text-align:center;display:flex;flex-direction:column;gap:6px}
+.result-head .big{font-family:var(--f-display);font-size:clamp(64px,18vw,128px);line-height:1;color:var(--ok)}
+.result-head p{margin:0;color:var(--muted)}
+.log{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.log span{font-family:var(--f-round);font-size:15px;padding:5px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--stage)}
+.log .ok{border-color:var(--ok);color:var(--ok)}
+.log .bad{border-color:var(--bad);color:var(--bad);text-decoration:line-through}
+.log .pass{border-color:var(--pass);color:var(--pass)}
+.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn{font-family:var(--f-round);font-size:18px;padding:12px 22px;border-radius:14px;background:var(--accent);color:#fff}
+.btn.sec{background:var(--stage);color:var(--fg);border:1.5px solid var(--line)}
+
+/* 오타쿠 모드 */
+.otaku .board{background:linear-gradient(135deg,#2a0f3d,#4a1450);box-shadow:inset 0 0 0 6px var(--otaku1)}
+.otaku .timer .fill{background:linear-gradient(90deg,var(--otaku1),var(--otaku2))}
+.otaku .sparkle{display:block}
+.sparkle{display:none;position:absolute;inset:0;pointer-events:none}
+.sparkle i{position:absolute;color:#ffd6ec;font-style:normal;animation:tw 2s infinite;opacity:.0}
+@keyframes tw{50%{opacity:.9;transform:scale(1.3)}}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:linear-gradient(120deg,var(--otaku1),var(--otaku2));color:#fff;font-family:var(--f-round);padding:12px 20px;border-radius:999px;z-index:6;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;animation:pop .5s}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+const CATS = {
+  animal:{name:"동물",ico:"🦁",c:"#f4a261",words:"사자 호랑이 코끼리 기린 얼룩말 하마 코뿔소 캥거루 코알라 판다 펭귄 북극곰 늑대 여우 너구리 다람쥐 토끼 거북이 악어 뱀 개구리 고래 돌고래 상어 문어 오징어 해파리 불가사리 낙타 원숭이 고릴라 침팬지 나무늘보 고슴도치 두더지 박쥐 부엉이 독수리 앵무새 공작 타조 플라밍고 미어캣 알파카 아르마딜로 오랑우탄 바다사자 염소 해마 당나귀 강아지 고양이 햄스터 카멜레온 이구아나 수달 비버 사슴 순록 치타"},
+  character:{name:"캐릭터",ico:"🦸",c:"#e76f51",words:"스티브 피카츄 도라에몽 짱구 스폰지밥 미키마우스 헬로키티 골룸 아이언맨 스파이더맨 배트맨 슈퍼맨 엘사 올라프 심바 슈렉 마리오 루피 손오공 코난 해리포터 셜록홈즈 신데렐라 백설공주 피노키오 피터팬 알라딘 지니 토토로 가오나시 라이언 어피치 펭수 크리퍼 타노스 그루트 요다 다스베이더 헐크 토르 캡틴아메리카 우디 버즈 니모 도리 미니언 쿵푸팬더 곰돌이푸 스누피 톰 제리 소닉 커비 팩맨 홍길동 흥부 놀부 춘향이 심청이 간달프"},
+  food:{name:"음식",ico:"🍜",c:"#e9c46a",words:"김치찌개 된장찌개 비빔밥 불고기 삼겹살 떡볶이 순대 김밥 라면 짜장면 짬뽕 탕수육 치킨 피자 햄버거 스파게티 초밥 우동 돈가스 카레 냉면 칼국수 만두 갈비 삼계탕 감자탕 부대찌개 떡국 잡채 김치전 호떡 붕어빵 아이스크림 케이크 도넛 마카롱 와플 팝콘 핫도그 샌드위치 샐러드 스테이크 쌀국수 타코 오므라이스 볶음밥 계란말이 어묵 순두부찌개 제육볶음 닭갈비 족발 보쌈 회 마라탕 훠궈 크로플 로제떡볶이 빙수 탕후루"},
+  country:{name:"나라",ico:"🌏",c:"#2a9d8f",words:"대한민국 북한 일본 중국 미국 캐나다 멕시코 브라질 아르헨티나 칠레 페루 영국 프랑스 독일 이탈리아 스페인 포르투갈 네덜란드 벨기에 스위스 오스트리아 스웨덴 노르웨이 핀란드 덴마크 러시아 우크라이나 폴란드 그리스 튀르키예 이집트 남아프리카공화국 케냐 나이지리아 모로코 사우디아라비아 이란 이스라엘 인도 파키스탄 태국 베트남 필리핀 인도네시아 말레이시아 싱가포르 몽골 호주 뉴질랜드 쿠바 자메이카 콜롬비아 아일랜드 아이슬란드 체코 헝가리 카자흐스탄 네팔 캄보디아 대만"},
+  job:{name:"직업",ico:"👩‍🚒",c:"#5b6cff",words:"의사 간호사 경찰관 소방관 선생님 요리사 제빵사 가수 배우 화가 작가 기자 아나운서 변호사 판사 군인 비행기조종사 승무원 버스기사 택배기사 우체부 농부 어부 목수 미용사 사진작가 프로그래머 과학자 우주비행사 건축가 디자이너 유튜버 프로게이머 운동선수 수의사 약사 치과의사 은행원 회계사 마술사 개그맨 댄서 모델 통역사 사서 바리스타 드론조종사 자동차정비사 경호원 탐정 대통령 외교관 큐레이터 웹툰작가 성우 심판 코치 택시기사 환경미화원 고고학자"},
+  sport:{name:"운동",ico:"⚽",c:"#ff4d6d",words:"축구 야구 농구 배구 탁구 테니스 배드민턴 골프 수영 육상 마라톤 태권도 유도 검도 복싱 레슬링 씨름 펜싱 양궁 사격 승마 스키 스노보드 스피드스케이팅 피겨스케이팅 쇼트트랙 아이스하키 컬링 봅슬레이 체조 리듬체조 역도 사이클 볼링 당구 핸드볼 럭비 하키 클라이밍 서핑 요트 카누 조정 다이빙 줄넘기 줄다리기 피구 족구 발야구 스쿼시 크리켓 트라이애슬론 등산 요가 필라테스 스케이트보드 드론축구 높이뛰기 멀리뛰기 수구"},
+};
+const ANIME = {name:"오타쿠 애니",ico:"🌸",c:"#ff5fa2",words:"나루토 사스케 카카시 원피스 조로 상디 쵸파 귀멸의칼날 탄지로 네즈코 젠이츠 이노스케 렌고쿠 주술회전 이타도리유지 고죠사토루 스쿠나 진격의거인 에렌예거 리바이 미카사 하이큐 히나타쇼요 카게야마 슬램덩크 강백호 서태웅 드래곤볼 베지터 에반게리온 체인소맨 덴지 마키마 스파이패밀리 아냐 로이드 블리치 이치고 헌터x헌터 곤 킬루아 데스노트 야가미라이토 강철의연금술사 에드워드엘릭 원펀맨 사이타마 나의히어로아카데미아 데쿠 바쿠고 도쿄구울 너의이름은 센과치히로의행방불명 하울의움직이는성 닥터스톤 센쿠 블루록 장송의프리렌 최애의아이 명탐정코난"};
+for (const k in CATS) CATS[k].list = CATS[k].words.split(" ");
+ANIME.list = ANIME.words.split(" ");
+const MYSTERY = {name:"미스터리 박스",ico:"❓",c:"#ffb703",
+  list:Object.values(CATS).flatMap(c=>c.list.map(w=>({w,c:c.ico+" "+c.name})))};
+const MISSIONS = ["몸으로만 설명!","한 글자씩만 말하기","소리·의성어로만","영어로만 설명","눈 감고 설명","속삭이듯 설명","10초 안에!","초성 힌트만","노래하듯 설명","로봇 말투로","반대말로 설명","3단어 이내로"];
+
+const HIPHOP_CAT = {name:"국힙 퀴즈",ico:"🎤",c:"#e5383b"};
+const HIPHOP = [
+ ["쇼미더머니 시즌1 우승자는?","로꼬",["지코","비와이","이영지"]],
+ ["쇼미더머니3 우승자는?","바비",["바스코","아이언","지코"]],
+ ["쇼미더머니4 우승자는?","베이식",["송민호","릴보이","행주"]],
+ ["쇼미더머니5 우승자는?","비와이",["씨잼","우원재","로꼬"]],
+ ["쇼미더머니6 우승자는?","행주",["우원재","넉살","비와이"]],
+ ["쇼미더머니777 우승자는?","나플라",["키드밀리","루피","로꼬"]],
+ ["쇼미더머니9 우승자는?","릴보이",["원슈타인","비와이","행주"]],
+ ["쇼미더머니10 우승자는?","조광일",["비오","이영지","릴보이"]],
+ ["쇼미더머니11 우승자는?","이영지",["비와이","나플라","로꼬"]],
+ ["고등래퍼 시즌1 우승자는?","양홍원",["김하온","이영지","행주"]],
+ ["고등래퍼2 우승자는?","김하온",["양홍원","이영지","바비"]],
+ ["고등래퍼3 우승자는?","이영지",["김하온","양홍원","비와이"]],
+ ["에픽하이 멤버가 아닌 사람은?","개코",["타블로","미쓰라진","투컷"]],
+ ["다이나믹 듀오의 두 멤버는?","개코·최자",["개리·길","타블로·투컷","이센스·사이먼 도미닉"]],
+ ["'쌈디'라는 별명으로 불리는 래퍼는?","사이먼 도미닉",["스윙스","그레이","로꼬"]],
+ ["레이블 AOMG를 만든 사람은?","박재범",["스윙스","도끼","지코"]],
+ ["박재범이 처음 데뷔한 아이돌 그룹은?","2PM",["빅뱅","블락비","2AM"]],
+ ["지코가 리더로 활동한 그룹은?","블락비",["빅뱅","위너","아이콘"]],
+ ["2020년 '아무노래' 챌린지로 대유행을 만든 래퍼는?","지코",["박재범","비와이","창모"]],
+ ["빈지노가 시미트와이스와 함께한 듀오는?","재지팩트",["리쌍","슈프림팀","다이나믹 듀오"]],
+ ["이센스와 사이먼 도미닉이 함께한 그룹은?","슈프림팀",["리쌍","에픽하이","재지팩트"]],
+ ["개리와 길이 함께한 듀오는?","리쌍",["다이나믹 듀오","슈프림팀","재지팩트"]],
+ ["레이블 저스트뮤직을 세운 래퍼는?","스윙스",["도끼","박재범","타블로"]],
+ ["일리네어 레코즈를 함께 세운 두 사람은?","도끼·더콰이엇",["스윙스·기리보이","박재범·사이먼 도미닉","개코·최자"]],
+ ["쇼미더머니6에서 '시차'로 유명해진 래퍼는?","우원재",["행주","넉살","비와이"]],
+ ["빅뱅의 래퍼 두 명은?","지드래곤·탑",["태양·대성","지코·피오","바비·비아이"]],
+ ["소유가 피처링한 '착해 빠졌어'를 부른 래퍼는?","매드클라운",["로꼬","행주","창모"]],
+ ["쇼미더머니5에서 'Forever'로 무대를 뒤집은 래퍼는?","비와이",["씨잼","행주","로꼬"]],
+ ["행주가 속한 힙합 그룹은?","리듬파워",["슈프림팀","재지팩트","에픽하이"]],
+ ["타이거JK가 이끈 힙합 팀은?","드렁큰타이거",["리쌍","에픽하이","다이나믹 듀오"]],
+ ["'Fly', 'Love Love Love'를 부른 힙합 그룹은?","에픽하이",["다이나믹 듀오","리쌍","슈프림팀"]],
+ ["2019년 'METEOR'로 차트 1위를 한 래퍼는?","창모",["지코","박재범","기리보이"]],
+ ["쇼미더머니11에서 '돌림판'으로 화제가 된 래퍼는?","머쉬베놈",["이영지","비와이","창모"]],
+ ["이영지의 'Small girl'에 피처링한 가수는?","도경수",["지코","박재범","태양"]],
+ ["2013년 켄드릭 라마 곡의 비트로 국힙 래퍼들이 서로 디스한 사건은?","컨트롤 비트 대란",["쇼미 대란","AOMG 사건","싸이퍼 전쟁"]],
+ ["노래에서 반복되는 후렴 부분을 힙합에서 부르는 말은?","훅",["벌스","인트로","브릿지"]],
+ ["래퍼 한 명이 랩하는 한 단락(보통 16마디)을 부르는 말은?","벌스",["훅","비트","샘플"]],
+ ["여러 래퍼가 한 비트에 돌아가며 랩하는 것은?","싸이퍼",["디스","피처링","샘플링"]],
+ ["다른 래퍼를 공격하는 내용의 곡을 부르는 말은?","디스",["리스펙","플렉스","스웩"]],
+ ["묵직한 킥과 스네어가 중심인 90년대 스타일 비트는?","붐뱁",["트랩","레게","EDM"]],
+ ["잘게 쪼개지는 하이햇과 808 베이스가 특징인 힙합 장르는?","트랩",["붐뱁","레게","재즈"]],
+];
+
+function startQuiz(){
+  state = {k:"hiphop", quiz:true, cat:HIPHOP_CAT, deck:shuffle(HIPHOP), i:0, ok:0, bad:0, pass:0, log:[], running:false, lock:false};
+  const c=HIPHOP_CAT;
+  app.classList.add("hiphop");
+  app.innerHTML = `
+    <div class="topbar">
+      <span class="chip" style="--c:${c.c}">${c.ico} ${c.name}</span>
+      <button class="ghost" id="quit">그만하기</button>
+    </div>
+    <div class="timer" id="timer"><div class="bar"><div class="fill" id="fill"></div></div><span class="t" id="t">2:00</span></div>
+    <div class="board" style="--c:${c.c};min-height:auto">
+      <div class="no" id="no">준비…</div>
+      <div class="q" id="word">?</div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="opts" id="opts"></div>
+    <div class="passrow"><button class="act pass" id="qpass">패스<small>Space</small></button></div>
+    <div class="scores">
+      <div class="score ok"><b id="sOk">0</b><small>정답</small></div>
+      <div class="score bad"><b id="sBad">0</b><small>오답</small></div>
+      <div class="score pass"><b id="sPass">0</b><small>패스</small></div>
+    </div>`;
+  document.getElementById("quit").onclick=()=>finish();
+  document.getElementById("qpass").onclick=()=>answer(-1);
+  countdown(()=>{ state.running=true; state.end=Date.now()+TIME*1000; nextQ(); tick=setInterval(update,250); });
+}
+
+function nextQ(){
+  const s=state; if(!s) return;
+  if (s.i>=s.deck.length){ s.deck=shuffle(HIPHOP); s.i=0 }
+  const [q,a,wrong]=s.deck[s.i++];
+  s.cur={q,a,opts:shuffle([a,...wrong])}; s.lock=false;
+  const w=document.getElementById("word");
+  w.textContent=q; w.classList.remove("flip"); void w.offsetWidth; w.classList.add("flip");
+  document.getElementById("no").textContent=`${s.log.length+1}번째 문제`;
+  document.getElementById("opts").innerHTML = s.cur.opts.map((o,i)=>`<button class="opt" data-i="${i}"><kbd>${i+1}</kbd><span>${esc(o)}</span></button>`).join("");
+  document.querySelectorAll(".opt").forEach(b=>b.onclick=()=>answer(+b.dataset.i));
+}
+
+function answer(i){
+  const s=state; if(!s||!s.running||s.lock) return;
+  s.lock=true;
+  const btns=[...document.querySelectorAll(".opt")];
+  const right=s.cur.opts.indexOf(s.cur.a);
+  let a;
+  if (i<0) a="pass"; else a = i===right ? "ok" : "bad";
+  s[a]++; s.log.push({w:s.cur.a,a});
+  btns[right].classList.add("right");
+  if (a==="bad") btns[i].classList.add("wrong");
+  document.getElementById("sOk").textContent=s.ok;
+  document.getElementById("sBad").textContent=s.bad;
+  document.getElementById("sPass").textContent=s.pass;
+  const f=document.getElementById("flash"); f.className="flash"; void f.offsetWidth; f.className="flash "+a;
+  if(a==="ok"){beep(880,.12,"triangle");setTimeout(()=>beep(1320,.18,"triangle"),90)}
+  else if(a==="bad") beep(140,.3,"sawtooth",.1); else beep(440,.1,"sine",.1);
+  setTimeout(()=>{ if(state===s && s.running) nextQ() }, a==="ok"?500:1100);
+}
+
+const TIME = 120;
+const app = document.getElementById("app");
+let unlocked = false, mystery = false, hiphop = false, state = null, tick = null, ac = null;
+
+function beep(f, d, type="sine", v=.15){
+  try{
+    ac = ac || new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type=type; o.frequency.value=f; g.gain.value=v;
+    o.connect(g); g.connect(ac.destination);
+    g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime+d);
+    o.start(); o.stop(ac.currentTime+d);
+  }catch(e){}
+}
+const shuffle = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]} return a };
+const esc = s => s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function lobby(){
+  clearInterval(tick); state=null;
+  app.innerHTML = `
+    <div class="secret">
+      <input id="code" type="text" autocomplete="off" placeholder="???" aria-label="???">
+      <span class="hint" id="eggs"></span>
+    </div>
+    <div class="marquee">
+      <div class="bulbs"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="eyebrow">SPEED QUIZ SHOW</div>
+      <h1>스피드 <span>퀴즈</span></h1>
+      <p>주제를 고르면 바로 시작! 2분 동안 최대한 많이 맞혀 보세요.</p>
+      <p style="font-size:13px">난이도: 초등 고학년 ~ 중학교 1·2학년</p>
+    </div>
+    <div class="cats">
+      ${Object.entries(CATS).map(([k,c])=>`
+        <button class="cat" data-k="${k}" style="--c:${c.c}">
+          <span class="ico">${c.ico}</span><span class="name">${c.name}</span><span class="cnt">단어 ${c.list.length}개</span>
+        </button>`).join("")}
+      <button class="cat secret-card ${unlocked?"show":""}" data-k="anime">
+        <span class="ico">🌸✨</span><span class="name">오타쿠 애니 스피드 게임</span><span class="cnt">비밀 주제 해금! 애니 단어 ${ANIME.list.length}개</span>
+      </button>
+      <button class="cat mystery-card ${mystery?"show":""}" data-k="mystery">
+        <span class="ico">❓📦❓</span><span class="name">미스터리 박스 모드</span><span class="cnt">6개 주제가 전부 섞이고, 단어마다 랜덤 미션이 붙어요!</span>
+      </button>
+      <button class="cat hiphop-card ${hiphop?"show":""}" data-k="hiphop">
+        <span class="ico">🎤🔥</span><span class="name">국힙 퀴즈</span><span class="cnt">혼자 푸는 4지선다 · 2분 동안 국내 힙합 문제 ${HIPHOP.length}개 중 랜덤</span>
+      </button>
+    </div>
+    <div class="rules">
+      <span>제한시간 2분</span>
+      <span><kbd>Enter</kbd> 정답</span>
+      <span><kbd>X</kbd> 오답</span>
+      <span><kbd>Space</kbd> 패스</span>
+    </div>`;
+  app.classList.remove("otaku","mystery","hiphop");
+  app.querySelectorAll(".cat").forEach(b=>b.onclick=()=>start(b.dataset.k));
+  const code = document.getElementById("code");
+  const eggs = () => document.getElementById("eggs").textContent = `🥚 ${(+unlocked)+(+mystery)+(+hiphop)}/3`;
+  eggs();
+  code.addEventListener("input", ()=>{
+    const v=code.value.trim().replace(/？/g,"?");
+    if (v==="." && !hiphop){
+      hiphop=true; eggs();
+      const card=app.querySelector(".hiphop-card"); card.classList.add("show");
+      toast("🎤 국힙 퀴즈 해금! 마이크 체크 원 투");
+      [110,110,220,165].forEach((f,i)=>setTimeout(()=>beep(f,.16,"square",.12),i*150));
+      card.scrollIntoView({behavior:"smooth",block:"center"});
+      setTimeout(()=>{code.value=""},400);
+    }
+    if (v==="???" && !mystery){
+      mystery=true; eggs();
+      const card=app.querySelector(".mystery-card"); card.classList.add("show");
+      toast("❓ 미스터리 박스가 열렸어요!");
+      [300,250,200,600].forEach((f,i)=>setTimeout(()=>beep(f,.18,"square",.07),i*110));
+      card.scrollIntoView({behavior:"smooth",block:"center"});
+      setTimeout(()=>{code.value=""},400);
+    }
+  });
+  code.addEventListener("input", ()=>{
+    if (code.value.trim()==="안녕하세요" && !unlocked){
+      unlocked=true;
+      app.querySelector(".secret-card").classList.add("show");
+      eggs(); setTimeout(()=>{code.value=""},400);
+      toast("✨ 이스터에그 발견! 오타쿠 애니 모드가 열렸어요");
+      [660,880,1100,1320].forEach((f,i)=>setTimeout(()=>beep(f,.15,"triangle"),i*90));
+      app.querySelector(".secret-card").scrollIntoView({behavior:"smooth",block:"center"});
+    }
+  });
+  
+}
+
+function toast(msg){
+  const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2600);
+}
+
+function start(k){
+  if (k==="hiphop") return startQuiz();
+  const cat = k==="anime" ? ANIME : k==="mystery" ? MYSTERY : CATS[k];
+  state = {k, cat, deck:shuffle(cat.list), i:0, left:TIME, ok:0, bad:0, pass:0, log:[], running:false};
+  renderGame();
+  countdown(()=>{ state.running=true; state.end=Date.now()+TIME*1000; next(true); tick=setInterval(update,250); });
+}
+
+function countdown(done){
+  const ov=document.createElement("div"); ov.className="count"; document.body.appendChild(ov);
+  let n=3;
+  const show=()=>{ ov.innerHTML=`<b>${n||"시작!"}</b>`; beep(n?520:880,.18,"square",.08) };
+  show();
+  const iv=setInterval(()=>{ n--; if(n<0){clearInterval(iv);ov.remove();done();return} show() },700);
+}
+
+function renderGame(){
+  const s=state, c=s.cat;
+  app.classList.toggle("otaku", s.k==="anime");
+  app.classList.toggle("mystery", s.k==="mystery");
+  app.innerHTML = `
+    <div class="topbar">
+      <span class="chip" style="--c:${c.c}">${c.ico} ${c.name}</span>
+      <button class="ghost" id="quit">그만하기</button>
+    </div>
+    <div class="timer" id="timer"><div class="bar"><div class="fill" id="fill"></div></div><span class="t" id="t">2:00</span></div>
+    <div class="board" style="--c:${c.c}">
+      <div class="sparkle">${Array.from({length:12},()=>`<i style="left:${Math.random()*95}%;top:${Math.random()*90}%;animation-delay:${(Math.random()*2).toFixed(2)}s">✦</i>`).join("")}</div>
+      <div class="no" id="no">준비…</div>
+      <div class="word" id="word">?</div>
+      <div class="mission" id="mission"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="actions">
+      <button class="act pass" data-a="pass">패스<small>Space</small></button>
+      <button class="act bad" data-a="bad">오답<small>X</small></button>
+      <button class="act ok" data-a="ok">정답<small>Enter</small></button>
+    </div>
+    <div class="scores">
+      <div class="score ok"><b id="sOk">0</b><small>정답</small></div>
+      <div class="score bad"><b id="sBad">0</b><small>오답</small></div>
+      <div class="score pass"><b id="sPass">0</b><small>패스</small></div>
+    </div>`;
+  document.getElementById("quit").onclick=()=>finish();
+  app.querySelectorAll(".act").forEach(b=>b.onclick=()=>act(b.dataset.a));
+}
+
+function next(first){
+  const s=state;
+  if (s.i>=s.deck.length){ s.deck=shuffle(s.cat.list); s.i=0 }
+  const item=s.deck[s.i++];
+  if (typeof item==='object'){ s.cur=item.w; s.curCat=item.c } else s.cur=item;
+  const w=document.getElementById("word");
+  w.textContent=s.cur; w.classList.remove("flip"); void w.offsetWidth; w.classList.add("flip");
+  document.getElementById("no").textContent = s.k==="mystery" ? `${s.log.length+1}번째 · ${s.curCat}` : `${s.log.length+1}번째 문제`;
+  if (s.k==="mystery"){ const m=document.getElementById("mission"); m.textContent="미션: "+MISSIONS[Math.floor(Math.random()*MISSIONS.length)]; m.style.animation="none"; void m.offsetWidth; m.style.animation=""; }
+}
+
+function act(a){
+  const s=state; if(!s||!s.running) return;
+  s[a]++; s.log.push({w:s.cur,a});
+  document.getElementById("sOk").textContent=s.ok;
+  document.getElementById("sBad").textContent=s.bad;
+  document.getElementById("sPass").textContent=s.pass;
+  const f=document.getElementById("flash"); f.className="flash"; void f.offsetWidth; f.className="flash "+a;
+  if(a==="ok"){beep(880,.12,"triangle");setTimeout(()=>beep(1320,.18,"triangle"),90)}
+  else if(a==="bad") beep(140,.3,"sawtooth",.1);
+  else beep(440,.1,"sine",.1);
+  next();
+}
+
+function update(){
+  const s=state; if(!s) return;
+  const left=Math.max(0,(s.end-Date.now())/1000);
+  const sec=Math.ceil(left);
+  document.getElementById("t").textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`;
+  document.getElementById("fill").style.width=(left/TIME*100)+"%";
+  document.getElementById("timer").classList.toggle("hurry", sec<=10);
+  if (sec<=10 && sec!==s.lastBeep && sec>0){ s.lastBeep=sec; beep(1000,.06,"square",.06) }
+  if (left<=0) finish(true);
+}
+
+function finish(timeUp){
+  clearInterval(tick);
+  const s=state; if(!s) return lobby();
+  s.running=false;
+  if (timeUp) [784,659,523].forEach((f,i)=>setTimeout(()=>beep(f,.25,"triangle"),i*180));
+  const msg = s.quiz ? (s.ok>=15?"국힙 고인물 인정 🎤🔥": s.ok>=10?"리스펙! 꽤 잘 아네요 🔥": s.ok>=5?"국힙 입문 완료 💪":"국힙 플레이리스트부터 들어보자 🎧") : s.ok>=25?"전설급 실력! 🏆": s.ok>=15?"엄청 잘했어요! 🔥": s.ok>=8?"좋아요, 한 판 더? 💪":"다음엔 더 잘할 수 있어요 🙂";
+  app.innerHTML = `
+    <div class="topbar"><span class="chip" style="--c:${s.cat.c}">${s.cat.ico} ${s.cat.name}</span><span class="chip" style="--c:var(--muted)">${timeUp?"시간 종료!":"게임 종료"}</span></div>
+    <div class="result-head">
+      <p>맞힌 개수</p>
+      <div class="big">${s.ok}</div>
+      <p>${msg}</p>
+    </div>
+    <div class="scores">
+      <div class="score ok"><b>${s.ok}</b><small>정답</small></div>
+      <div class="score bad"><b>${s.bad}</b><small>오답</small></div>
+      <div class="score pass"><b>${s.pass}</b><small>패스</small></div>
+    </div>
+    <div class="log">${s.log.length? s.log.map(l=>`<span class="${l.a}">${esc(l.w)}</span>`).join("") : `<span>아직 푼 문제가 없어요</span>`}</div>
+    <div class="row">
+      <button class="btn" id="again">같은 주제 다시하기</button>
+      <button class="btn sec" id="home">로비로</button>
+    </div>`;
+  document.getElementById("again").onclick=()=>start(s.k);
+  document.getElementById("home").onclick=lobby;
+  state=null;
+}
+
+document.addEventListener("keydown", e=>{
+  if (!state || !state.running) return;
+  if (state.quiz){
+    if ("1234".includes(e.key) && e.key!==""){e.preventDefault();answer(+e.key-1)}
+    else if (e.key===" "){e.preventDefault();answer(-1)}
+    return;
+  }
+  if (e.key==="Enter"){e.preventDefault();act("ok")}
+  else if (e.key===" "){e.preventDefault();act("pass")}
+  else if (e.key==="x"||e.key==="X"||e.key==="ㅌ"){e.preventDefault();act("bad")}
+});
+
+lobby();
+</script>
+</body>
+</html>
